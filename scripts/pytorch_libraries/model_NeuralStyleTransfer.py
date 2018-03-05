@@ -40,7 +40,7 @@ class VGGNet(nn.Module):
     def __init__(self):
         """Select conv1_1 ~ conv5_1 activation maps."""
         super(VGGNet, self).__init__()
-        self.select = ['0', '5', '10', '19', '28'] 
+        self.select = ['1','6', '11', '20', '29'] 
         self.vgg = models.vgg19(pretrained=True).features
         
     def forward(self, x):
@@ -54,9 +54,10 @@ class VGGNet(nn.Module):
         """
         features = []
         for name, layer in self.vgg._modules.items():
-            x = layer(x)
-            if name in self.select:
-                features.append(x)
+            if int(name)<=int(self.select[-1]):
+                x = layer(x)
+                if name in self.select:
+                    features.append(x)
         return features
 
 
