@@ -26,11 +26,14 @@ def image_loader(image_path, transform):
     
     return image.type(dtype)
 
-def tensor_shower(tensor,imH,imW, title = None):
+def tensor_shower(tensor,imH,imW, title = None, denorm = None):
     unloader = transforms.ToPILImage()
-    image    = tensor.clone().cpu()  # we clone the tensor to not do changes on it
-    image    = image.view(3, imH, imW)  # remove the fake batch dimension
+    image    = tensor.clone().cpu()  
+    image    = image.view(3, imH, imW)
+    if not denorm is None:
+        image = denorm(image)
     image    = unloader(image)
+
     plt.imshow(image)
     plt.axis('off')
     if not title is None:
@@ -41,7 +44,8 @@ def tensor_shower(tensor,imH,imW, title = None):
 class VGGNet(nn.Module):
     def __init__(self):
         super(VGGNet, self).__init__()
-        self.select = ['0','2', '5', '7', '10'] 
+        self.select = ['0','5', '10', '19', '28'] 
+        #self.select = ['0','2', '5', '7', '10'] 
         self.vgg    = models.vgg19(pretrained=True).features
         
     def forward(self, x):
