@@ -13,7 +13,7 @@ import numpy as np
 from pylab import *
 
 
-use_cuda = torch.cuda.is_available()
+use_cuda = True#torch.cuda.is_available()
 dtype = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 
 
