@@ -10,6 +10,180 @@ import torch.optim as optim
 from   torch.utils.data import Dataset, DataLoader
 
 
+class VAE(nn.Module):
+    def __init__(self):
+        super(VAE, self).__init__()
+
+        self.encoder_common = nn.Sequential(
+            nn.Linear(784, 400),
+            nn.ReLU(True),
+            nn.Linear(400, 100),
+            nn.ReLU(True),
+        )
+
+        self.encoder_mu = nn.Linear(100, 36)
+        self.encoder_logvar = nn.Linear(100, 36)
+
+
+        self.decoder = nn.Sequential(
+            nn.Linear(36 , 100),
+            nn.ReLU(True),
+            nn.Linear(100, 400),
+            nn.ReLU(True),
+            nn.Linear(400, 784),
+            nn.Tanh()
+        )
+
+    def encode(self, x):
+        x = self.encoder_common(x)
+        mu     = self.encoder_mu(x)
+        logvar = self.encoder_logvar(x)
+        return mu, logvar
+
+    def reparametrize(self, mu, logvar):
+        std = logvar.mul(0.5).exp_()
+
+        eps = torch.FloatTensor(std.size())
+        eps = eps.normal_()
+        eps = Variable(eps)
+        
+        if std.is_cuda:
+            eps = eps.cuda()
+
+        z = eps.mul(std).add_(mu)
+        return z
+
+    def decode(self, z):
+        z = self.decoder(z)
+        return z
+
+    def forward(self, x):
+        x = x.view(-1, 784)
+        mu, logvar = self.encode(x)
+        z = self.reparametrize(mu, logvar)
+        z = self.decode(z)
+        return z, mu, logvar
+
+
+
+
+
+
+class dcVAE(nn.Module):
+    def __init__(self):
+        super(dcVAE, self).__init__()
+
+        self.encoder_common = nn.Sequential(
+            nn.Conv2d(1, 16, 4, stride=2, padding=0),  # b, 16, 13, 13
+            nn.ReLU(True),
+            nn.Conv2d(16,32, 5, stride=2, padding=0),  # b, 32, 4, 4
+            nn.ReLU(True),
+            nn.Conv2d(32, 4, 3, stride=1, padding=0),  # b, 4, 3, 3
+            nn.ReLU(True),
+        )
+
+        self.encoder_mu = nn.Linear(36, 36)
+        self.encoder_logvar = nn.Linear(36, 36)
+
+
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(4, 32, 3, stride=1, padding=0),  # b, 32, 3, 3
+            nn.ReLU(True),
+            nn.ConvTranspose2d(32, 16, 5, stride=2, padding=0),  # b, 16, 13, 13
+            nn.ReLU(True),
+            nn.ConvTranspose2d(16, 1,  4, stride=2, padding=0),  # b, 1, 28, 28
+            nn.Tanh()
+        )
+
+    def encode(self, x):
+        x = self.encoder_common(x)
+        x = x.view(-1, 4*3*3)
+        mu     = self.encoder_mu(x)
+        logvar = self.encoder_logvar(x)
+        return mu, logvar
+
+    def reparametrize(self, mu, logvar):
+        std = logvar.mul(0.5).exp_()
+
+        eps = torch.FloatTensor(std.size())
+        eps = eps.normal_()
+        eps = Variable(eps)
+
+        if std.is_cuda:
+            eps = eps.cuda()
+
+        z = eps.mul(std).add_(mu)
+        return z
+
+    def decode(self, z):
+        z = z.view(-1,4,3,3)
+        z = self.decoder(z)
+        return z
+
+    def forward(self, x):
+        x = x.view(-1, 1,28,28)
+        mu, logvar = self.encode(x)
+        z = self.reparametrize(mu, logvar)
+        
+        z = self.decode(z)
+        z = z.view(-1, 784)
+        return z, mu, logvar
+
+
+def loss_BCEandKLD(recon_x, x, mu, logvar, kld_factor=1.0 ):
+
+    x,recon_x = (x+1)/2, (recon_x+1)/2
+    BCE = F.binary_cross_entropy(recon_x, x, size_average=False)
+
+    # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+    KLD_element = mu.pow(2).add_(logvar.exp()).mul_(-1).add_(1).add_(logvar)
+    KLD = torch.sum(KLD_element).mul_(-0.5)
+
+    return BCE + KLD * kld_factor
+
+
+def generator_GetNormalSeed(batch_size,N_Feature ):
+    seed = np.random.normal(0,1,size=(batch_size, N_Feature))
+    seed = torch.FloatTensor(seed)
+    return seed
+
+
+'''
+model.eval()
+recons = []
+tstitems = DataLoader(tstset, shuffle=False)
+
+for item in tstitems:
+    inputs  = Variable(item["data"]).cuda()
+    labels  = Variable(item["label"]).cuda()
+    recon, mu, logvar = model(inputs)
+    recons.append(recon.data.cpu().numpy())
+    
+recons = np.array(recons)
+
+
+
+
+fig = plt.figure(figsize=(10,10))
+nrow = 9
+ncol = 7
+for row in range(nrow):
+    plt.subplot(nrow,ncol, ncol*row+1)
+    target = tstset[row]['data']
+    target = target.reshape(28,28).T
+    imshow(target)
+    for i in range(1,ncol,1):
+        plt.subplot(nrow,ncol ,ncol*row+1+i)
+        inputs = tstset[row]['data']
+        inputs = torch.from_numpy(inputs)
+        inputs = Variable(inputs).cuda()
+        recon, mu, logvar = model(inputs)
+        recon  = recon.data
+        recon  = recon.cpu().numpy()
+        recon  = recon.reshape(28,28).T
+        imshow(recon)
+
+
 
 class VAE_MNIST(nn.Module):
     def __init__(self):
@@ -127,50 +301,4 @@ def generator_GetNormalSeed(batch_size,N_Feature ):
     seed = torch.FloatTensor(seed)
     return seed
 
-
-def loss_BCEandKLD(recon_x, x, mu, logvar, kld_factor=1.0 ):
-    
-    BCE = F.binary_cross_entropy(recon_x, x, size_average=False)
-
-    # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-    KLD_element = mu.pow(2).add_(logvar.exp()).mul_(-1).add_(1).add_(logvar)
-    KLD = torch.sum(KLD_element).mul_(-0.5)
-
-    return BCE + KLD * kld_factor
-
-
-'''
-model.eval()
-recons = []
-tstitems = DataLoader(tstset, shuffle=False)
-
-for item in tstitems:
-    inputs  = Variable(item["data"]).cuda()
-    labels  = Variable(item["label"]).cuda()
-    recon, mu, logvar = model(inputs)
-    recons.append(recon.data.cpu().numpy())
-    
-recons = np.array(recons)
-
-
-
-
-fig = plt.figure(figsize=(10,10))
-nrow = 9
-ncol = 7
-for row in range(nrow):
-    plt.subplot(nrow,ncol, ncol*row+1)
-    target = tstset[row]['data']
-    target = target.reshape(28,28).T
-    imshow(target)
-    for i in range(1,ncol,1):
-        plt.subplot(nrow,ncol ,ncol*row+1+i)
-        inputs = tstset[row]['data']
-        inputs = torch.from_numpy(inputs)
-        inputs = Variable(inputs).cuda()
-        recon, mu, logvar = model(inputs)
-        recon  = recon.data
-        recon  = recon.cpu().numpy()
-        recon  = recon.reshape(28,28).T
-        imshow(recon)
 '''

@@ -45,7 +45,6 @@ class VGGNet(nn.Module):
     def __init__(self):
         super(VGGNet, self).__init__()
         self.select = ['0','5', '10', '19', '28'] 
-        #self.select = ['0','2', '5', '7', '10'] 
         self.vgg    = models.vgg19(pretrained=True).features
         
     def forward(self, x):

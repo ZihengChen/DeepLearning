@@ -12,24 +12,57 @@ from   torch.utils.data import Dataset, DataLoader
 
 
 
-class CNN_MNIST(nn.Module):
-    def __init__(self):
-        super(CNN_MNIST, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.fc1 = nn.Linear(20 * 4 * 4, 128)
-        self.fc2 = nn.Linear(128, 32)
-        self.fc3 = nn.Linear(32, 10)
+class DNN(nn.Module):
+    def __init__(self ):
+        super(DNN, self).__init__()
+        self.fc = nn.Sequential(
+            nn.Linear(784,400),
+            nn.Dropout(p=0.1),
+            nn.ReLU(True),
+
+            nn.Linear(400,100),
+            nn.Dropout(p=0.1),
+            nn.ReLU(True),
+
+            nn.Linear(100,10),
+            nn.LogSoftmax()
+        )
 
     def forward(self, x):
-        x = F.max_pool2d(F.relu(self.conv1(x)),kernel_size=2)
-        x = F.max_pool2d(F.relu(self.conv2(x)),kernel_size=2)
-        x = F.dropout2d(x, p=0.2, training=self.training)
-        x = x.view(-1, 20 * 4 * 4)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = F.log_softmax(self.fc3(x))
+        x = x.view(-1, 784)
+        x = self.fc(x)
         return x
+
+    
+class CNN(nn.Module):
+    def __init__(self ):
+        super(CNN, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 16, 4, stride=2, padding=0), # b, 16, 13, 13
+            nn.BatchNorm2d(16),
+            nn.ReLU(True),
+
+            nn.Conv2d(16,32, 5, stride=2, padding=0), # b, 32,  5,  5
+            nn.BatchNorm2d(32),
+            nn.ReLU(True),
+
+            nn.Conv2d(32, 4, 3, stride=1, padding=0),  # b, 4, 3, 3
+            nn.BatchNorm2d(4),
+            nn.ReLU(True)
+        )
+
+        self.fc = nn.Sequential(
+            nn.Linear(4*3*3,10),
+            nn.LogSoftmax()
+        )
+
+    def forward(self, x):
+        x = x.view(-1, 1, 28, 28)
+        x = self.conv(x)
+        x = x.view(-1, 4*3*3)
+        x = self.fc(x)
+        return x
+
 
 
 
@@ -55,7 +88,26 @@ class Net(nn.Module):
         x = self.fc3(x)
         return x
 
+class DNN_4l(nn.Module):
+    def __init__(self, n,m1,m2,m3,c ):
+        super(DNN_4l, self).__init__()
+        
+        self.nlayer  = 4
 
+        self.fc1 = nn.Linear(n , m1)
+        self.fc2 = nn.Linear(m1, m2)
+        self.fc3 = nn.Linear(m2, m3)
+        self.fc4 = nn.Linear(m3, c )
+
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.dropout(x, p=0.2, training=self.training)
+        x = F.relu(self.fc2(x))
+        x = F.dropout(x, p=0.2, training=self.training)
+        x = F.relu(self.fc3(x))
+        x = F.log_softmax(self.fc4(x))
+        return x
     
 def ShowOneBatch(trainloader,net,classes):
     # get some random training images
