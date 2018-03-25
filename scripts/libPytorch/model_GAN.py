@@ -70,14 +70,16 @@ class GEN_MNIST(nn.Module):
 
 class dcDIS_MNIST(nn.Module):
     def __init__(self):
-        super(DIScnn_MNIST, self).__init__()
+        super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(1, 16, 4, stride=2, padding=0),  # b, 16, 13, 13
             nn.BatchNorm2d(16),
+            nn.Dropout2d(p=0.3),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
 
             nn.Conv2d(16,32, 5, stride=2, padding=0),  # b, 32, 5, 5
             nn.BatchNorm2d(32),
+            nn.Dropout2d(p=0.3),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
 
             nn.Conv2d(32, 4, 3, stride=1, padding=0),  # b, 4, 3, 3
@@ -105,7 +107,7 @@ class dcDIS_MNIST(nn.Module):
 
 class dcGEN_MNIST(nn.Module):
     def __init__(self):
-        super(GENcnn_MNIST,self).__init__()
+        super().__init__()
         self.fc = nn.Sequential(
             nn.Linear(100, 64),
             nn.BatchNorm1d(64, affine=False),
